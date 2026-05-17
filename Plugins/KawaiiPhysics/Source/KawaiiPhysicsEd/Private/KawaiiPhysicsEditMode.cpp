@@ -160,35 +160,44 @@ void FKawaiiPhysicsEditMode::RenderModifyBones(FPrimitiveDrawInterface* PDI) con
 {
 	if (GraphNode->bEnableDebugDrawBone)
 	{
-		for (auto& Bone : RuntimeNode->ModifyBones)
+		auto RenderBones = [&](const TArray<FKawaiiPhysicsModifyBone>& InModifyBones)
 		{
-			FVector BoneLocation = Bone.Location;
-			if (RuntimeNode->SimulationSpace == EKawaiiPhysicsSimulationSpace::BaseBoneSpace)
+			for (auto& Bone : InModifyBones)
 			{
-				const FTransform& BaseBoneSpace2ComponentSpace = RuntimeNode->GetBaseBoneSpace2ComponentSpace();
-				BoneLocation = BaseBoneSpace2ComponentSpace.TransformPosition(BoneLocation);
-			}
-
-			PDI->DrawPoint(BoneLocation, FLinearColor::White, 5.0f, SDPG_Foreground);
-
-			if (Bone.PhysicsSettings.Radius > 0)
-			{
-				auto Color = Bone.bDummy ? FColor::Red : FColor::Yellow;
-				DrawWireSphere(PDI, BoneLocation, Color, Bone.PhysicsSettings.Radius, 16, SDPG_Foreground);
-			}
-
-			for (const int32 ChildIndex : Bone.ChildIndices)
-			{
-				FVector ChildBoneLocation = RuntimeNode->ModifyBones[ChildIndex].Location;
+				FVector BoneLocation = Bone.Location;
 				if (RuntimeNode->SimulationSpace == EKawaiiPhysicsSimulationSpace::BaseBoneSpace)
 				{
 					const FTransform& BaseBoneSpace2ComponentSpace = RuntimeNode->GetBaseBoneSpace2ComponentSpace();
-					ChildBoneLocation = BaseBoneSpace2ComponentSpace.TransformPosition(ChildBoneLocation);
+					BoneLocation = BaseBoneSpace2ComponentSpace.TransformPosition(BoneLocation);
 				}
 
-				DrawDashedLine(PDI, BoneLocation, ChildBoneLocation,
-				               FLinearColor::White, 1, SDPG_Foreground);
+				PDI->DrawPoint(BoneLocation, FLinearColor::White, 5.0f, SDPG_Foreground);
+
+				if (Bone.PhysicsSettings.Radius > 0)
+				{
+					auto Color = Bone.bDummy ? FColor::Red : FColor::Yellow;
+					DrawWireSphere(PDI, BoneLocation, Color, Bone.PhysicsSettings.Radius, 16, SDPG_Foreground);
+				}
+
+				for (const int32 ChildIndex : Bone.ChildIndices)
+				{
+					FVector ChildBoneLocation = InModifyBones[ChildIndex].Location;
+					if (RuntimeNode->SimulationSpace == EKawaiiPhysicsSimulationSpace::BaseBoneSpace)
+					{
+						const FTransform& BaseBoneSpace2ComponentSpace = RuntimeNode->GetBaseBoneSpace2ComponentSpace();
+						ChildBoneLocation = BaseBoneSpace2ComponentSpace.TransformPosition(ChildBoneLocation);
+					}
+
+					DrawDashedLine(PDI, BoneLocation, ChildBoneLocation,
+					               FLinearColor::White, 1, SDPG_Foreground);
+				}
 			}
+		};
+
+		RenderBones(RuntimeNode->ModifyBones);
+		for (auto& Chain : RuntimeNode->Chains)
+		{
+			RenderBones(Chain.ModifyBones);
 		}
 	}
 }
@@ -197,29 +206,39 @@ void FKawaiiPhysicsEditMode::RenderLimitAngle(FPrimitiveDrawInterface* PDI) cons
 {
 	if (GraphNode->bEnableDebugDrawLimitAngle)
 	{
-		for (auto& Bone : RuntimeNode->ModifyBones)
+		auto RenderLimit = [&](const TArray<FKawaiiPhysicsModifyBone>& InModifyBones)
 		{
-			if (!Bone.bSkipSimulate && Bone.PhysicsSettings.LimitAngle > 0.0f && Bone.HasParent())
+			for (auto& Bone : InModifyBones)
 			{
-				FTransform BoneTransform = FTransform(Bone.PrevRotation, Bone.PrevLocation);
-				FTransform ParentBoneTransform = FTransform(RuntimeNode->ModifyBones[Bone.ParentIndex].PrevRotation,
-				                                            RuntimeNode->ModifyBones[Bone.ParentIndex].PrevLocation);
-
-				if (RuntimeNode->SimulationSpace == EKawaiiPhysicsSimulationSpace::BaseBoneSpace)
+				if (!Bone.bSkipSimulate && Bone.PhysicsSettings.LimitAngle > 0.0f && Bone.HasParent())
 				{
-					const FTransform& BaseBoneSpace2ComponentSpace = RuntimeNode->GetBaseBoneSpace2ComponentSpace();
-					BoneTransform = BoneTransform * BaseBoneSpace2ComponentSpace;
-					ParentBoneTransform = ParentBoneTransform * BaseBoneSpace2ComponentSpace;
-				}
+					FTransform BoneTransform = FTransform(Bone.PrevRotation, Bone.PrevLocation);
+					FTransform ParentBoneTransform = FTransform(
+						InModifyBones[Bone.ParentIndex].PrevRotation,
+						InModifyBones[Bone.ParentIndex].PrevLocation);
 
-				const float Angle = FMath::DegreesToRadians(Bone.PhysicsSettings.LimitAngle);
-				DrawCone(PDI, FScaleMatrix(5.0f) * FTransform(
-					         (BoneTransform.GetLocation() - ParentBoneTransform.GetLocation()).Rotation(),
-					         ParentBoneTransform.GetLocation()).ToMatrixNoScale(),
-				         Angle,
-				         Angle, 24, true, FLinearColor::White,
-				         GEngine->ConstraintLimitMaterialPrismatic->GetRenderProxy(), SDPG_World);
+					if (RuntimeNode->SimulationSpace == EKawaiiPhysicsSimulationSpace::BaseBoneSpace)
+					{
+						const FTransform& BaseBoneSpace2ComponentSpace = RuntimeNode->GetBaseBoneSpace2ComponentSpace();
+						BoneTransform = BoneTransform * BaseBoneSpace2ComponentSpace;
+						ParentBoneTransform = ParentBoneTransform * BaseBoneSpace2ComponentSpace;
+					}
+
+					const float Angle = FMath::DegreesToRadians(Bone.PhysicsSettings.LimitAngle);
+					DrawCone(PDI, FScaleMatrix(5.0f) * FTransform(
+						         (BoneTransform.GetLocation() - ParentBoneTransform.GetLocation()).Rotation(),
+						         ParentBoneTransform.GetLocation()).ToMatrixNoScale(),
+					         Angle,
+					         Angle, 24, true, FLinearColor::White,
+					         GEngine->ConstraintLimitMaterialPrismatic->GetRenderProxy(), SDPG_World);
+				}
 			}
+		};
+
+		RenderLimit(RuntimeNode->ModifyBones);
+		for (auto& Chain : RuntimeNode->Chains)
+		{
+			RenderLimit(Chain.ModifyBones);
 		}
 	}
 }
@@ -523,38 +542,51 @@ void FKawaiiPhysicsEditMode::RenderBoneConstraint(FPrimitiveDrawInterface* PDI) 
 {
 	if (GraphNode->bEnableDebugDrawBoneConstraint)
 	{
-		for (const FModifyBoneConstraint& BoneConstraint : RuntimeNode->MergedBoneConstraints)
+		auto RenderConstraints = [&](const TArray<FKawaiiPhysicsModifyBone>& InModifyBones,
+		                             const TArray<FModifyBoneConstraint>& InConstraints)
 		{
-			if (BoneConstraint.IsBoneReferenceValid() && !RuntimeNode->ModifyBones.IsEmpty())
+			for (const FModifyBoneConstraint& BoneConstraint : InConstraints)
 			{
-				FTransform BoneTransform1 = FTransform(
-					RuntimeNode->ModifyBones[BoneConstraint.ModifyBoneIndex1].PrevRotation,
-					RuntimeNode->ModifyBones[BoneConstraint.ModifyBoneIndex1].PrevLocation);
-				FTransform BoneTransform2 = FTransform(
-					RuntimeNode->ModifyBones[BoneConstraint.ModifyBoneIndex2].PrevRotation,
-					RuntimeNode->ModifyBones[BoneConstraint.ModifyBoneIndex2].PrevLocation);
-
-				if (RuntimeNode->SimulationSpace == EKawaiiPhysicsSimulationSpace::BaseBoneSpace)
+				if (BoneConstraint.IsBoneReferenceValid() && !InModifyBones.IsEmpty())
 				{
-					const FTransform& BaseBoneSpace2ComponentSpace = RuntimeNode->GetBaseBoneSpace2ComponentSpace();
-					BoneTransform1 = BoneTransform1 * BaseBoneSpace2ComponentSpace;
-					BoneTransform2 = BoneTransform2 * BaseBoneSpace2ComponentSpace;
-				}
+					FTransform BoneTransform1 = FTransform(
+						InModifyBones[BoneConstraint.ModifyBoneIndex1].PrevRotation,
+						InModifyBones[BoneConstraint.ModifyBoneIndex1].PrevLocation);
+					FTransform BoneTransform2 = FTransform(
+						InModifyBones[BoneConstraint.ModifyBoneIndex2].PrevRotation,
+						InModifyBones[BoneConstraint.ModifyBoneIndex2].PrevLocation);
 
-				// 1 -> 2
-				FVector Dir = (BoneTransform2.GetLocation() - BoneTransform1.GetLocation()).GetSafeNormal();
-				FRotator LookAt = FRotationMatrix::MakeFromX(Dir).Rotator();
-				FTransform DrawArrowTransform = FTransform(LookAt, BoneTransform1.GetLocation(),
-				                                           BoneTransform1.GetScale3D());
-				const float Distance = (BoneTransform1.GetLocation() - BoneTransform2.GetLocation()).Size();
-				DrawDirectionalArrow(PDI, DrawArrowTransform.ToMatrixNoScale(), FLinearColor::Red,
-				                     Distance, 1, SDPG_Foreground);
-				// 2 -> 1
-				LookAt = FRotationMatrix::MakeFromX(-Dir).Rotator();
-				DrawArrowTransform = FTransform(LookAt, BoneTransform2.GetLocation(), BoneTransform2.GetScale3D());
-				DrawDirectionalArrow(PDI, DrawArrowTransform.ToMatrixNoScale(), FLinearColor::Red,
-				                     Distance, 1, SDPG_Foreground);
+					if (RuntimeNode->SimulationSpace == EKawaiiPhysicsSimulationSpace::BaseBoneSpace)
+					{
+						const FTransform& BaseBoneSpace2ComponentSpace = RuntimeNode->GetBaseBoneSpace2ComponentSpace();
+						BoneTransform1 = BoneTransform1 * BaseBoneSpace2ComponentSpace;
+						BoneTransform2 = BoneTransform2 * BaseBoneSpace2ComponentSpace;
+					}
+
+					// 1 -> 2
+					FVector Dir = (BoneTransform2.GetLocation() - BoneTransform1.GetLocation()).GetSafeNormal();
+					FRotator LookAt = FRotationMatrix::MakeFromX(Dir).Rotator();
+					FTransform DrawArrowTransform = FTransform(LookAt, BoneTransform1.GetLocation(),
+					                                           BoneTransform1.GetScale3D());
+					const float Distance = (BoneTransform1.GetLocation() - BoneTransform2.GetLocation()).Size();
+					DrawDirectionalArrow(PDI, DrawArrowTransform.ToMatrixNoScale(), FLinearColor::Red,
+					                     Distance, 1, SDPG_Foreground);
+					// 2 -> 1
+					LookAt = FRotationMatrix::MakeFromX(-Dir).Rotator();
+					DrawArrowTransform = FTransform(LookAt, BoneTransform2.GetLocation(), BoneTransform2.GetScale3D());
+					DrawDirectionalArrow(PDI, DrawArrowTransform.ToMatrixNoScale(), FLinearColor::Red,
+					                     Distance, 1, SDPG_Foreground);
+				}
 			}
+		};
+
+		RenderConstraints(RuntimeNode->ModifyBones, RuntimeNode->MergedBoneConstraints);
+		for (auto& Chain : RuntimeNode->Chains)
+		{
+			TArray<FModifyBoneConstraint> ChainMerged;
+			ChainMerged.Append(Chain.BoneConstraintSettings.BoneConstraints);
+			ChainMerged.Append(Chain.BoneConstraintSettings.BoneConstraintsData);
+			RenderConstraints(Chain.ModifyBones, ChainMerged);
 		}
 	}
 }
@@ -563,16 +595,26 @@ void FKawaiiPhysicsEditMode::RenderExternalForces(FPrimitiveDrawInterface* PDI) 
 {
 	if (GraphNode->bEnableDebugDrawExternalForce)
 	{
-		for (const auto& Bone : RuntimeNode->ModifyBones)
+		auto RenderForces = [&](const TArray<FKawaiiPhysicsModifyBone>& InModifyBones,
+		                        TArray<FInstancedStruct>& InExternalForces)
 		{
-			for (auto& Force : RuntimeNode->ExternalForces)
+			for (const auto& Bone : InModifyBones)
 			{
-				if (Force.IsValid())
+				for (auto& Force : InExternalForces)
 				{
-					Force.GetMutablePtr<FKawaiiPhysics_ExternalForce>()->AnimDrawDebugForEditMode(
-						Bone, *RuntimeNode, PDI);
+					if (Force.IsValid())
+					{
+						Force.GetMutablePtr<FKawaiiPhysics_ExternalForce>()->AnimDrawDebugForEditMode(
+							Bone, *RuntimeNode, PDI);
+					}
 				}
 			}
+		};
+
+		RenderForces(RuntimeNode->ModifyBones, RuntimeNode->ExternalForces);
+		for (auto& Chain : RuntimeNode->Chains)
+		{
+			RenderForces(Chain.ModifyBones, Chain.ExternalForceSettings.ExternalForces);
 		}
 	}
 }

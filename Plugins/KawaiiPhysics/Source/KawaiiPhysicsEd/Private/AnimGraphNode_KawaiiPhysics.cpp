@@ -53,7 +53,12 @@ FText UAnimGraphNode_KawaiiPhysics::GetNodeTitle(ENodeTitleType::Type TitleType)
 
 	FFormatNamedArguments Args;
 	Args.Add(TEXT("ControllerDescription"), GetControllerDescription());
-	Args.Add(TEXT("RootBoneName"), FText::FromName(Node.RootBone.BoneName));
+	FName RootBoneName = Node.RootBone.BoneName;
+	if (Node.Chains.Num() > 0)
+	{
+		RootBoneName = Node.Chains[0].BoneSettings.RootBone.BoneName;
+	}
+	Args.Add(TEXT("RootBoneName"), FText::FromName(RootBoneName));
 	Args.Add(TEXT("Tag"), FText::FromString(Node.KawaiiPhysicsTag.ToString()));
 
 	// FText::Format() is slow, so we cache this to save on performance
@@ -89,6 +94,10 @@ void UAnimGraphNode_KawaiiPhysics::PostEditChangeProperty(struct FPropertyChange
 	Super::PostEditChangeProperty(PropertyChangedEvent);
 
 	Node.ModifyBones.Empty();
+	for (auto& Chain : Node.Chains)
+	{
+		Chain.ModifyBones.Empty();
+	}
 	ReconstructNode();
 }
 
@@ -116,6 +125,22 @@ void UAnimGraphNode_KawaiiPhysics::ValidateAnimNodePostCompile(FCompilerResultsL
 	{
 		MessageLog.Warning(TEXT("@@ RootBone is empty."), this);
 	}
+
+	for (auto& Chain : Node.Chains)
+	{
+		Chain.BoneSettings.RootBone.Initialize(CompiledClass->TargetSkeleton);
+		if (Chain.BoneSettings.RootBone.BoneIndex >= 0)
+		{
+			if (Chain.BoneSettings.ExcludeBones.Contains(Chain.BoneSettings.RootBone))
+			{
+				MessageLog.Warning(TEXT("@@ Chain ExcludeBones should NOT has RootBone."), this);
+			}
+		}
+		else if (CompiledClass->TargetSkeleton)
+		{
+			MessageLog.Warning(TEXT("@@ Chain RootBone is empty."), this);
+		}
+	}
 }
 
 void UAnimGraphNode_KawaiiPhysics::CopyNodeDataToPreviewNode(FAnimNode_Base* AnimNode)
@@ -123,6 +148,9 @@ void UAnimGraphNode_KawaiiPhysics::CopyNodeDataToPreviewNode(FAnimNode_Base* Ani
 	FAnimNode_KawaiiPhysics* KawaiiPhysics = static_cast<FAnimNode_KawaiiPhysics*>(AnimNode);
 
 	// pushing properties to preview instance, for live editing
+	// Chains
+	KawaiiPhysics->Chains = Node.Chains;
+
 	// Default
 	KawaiiPhysics->RootBone = Node.RootBone;
 	KawaiiPhysics->ExcludeBones = Node.ExcludeBones;
@@ -132,6 +160,7 @@ void UAnimGraphNode_KawaiiPhysics::CopyNodeDataToPreviewNode(FAnimNode_Base* Ani
 
 	// Physics Settings
 	KawaiiPhysics->PhysicsSettings = Node.PhysicsSettings;
+	KawaiiPhysics->GravityCurveData = Node.GravityCurveData;
 	KawaiiPhysics->DampingCurveData = Node.DampingCurveData;
 	KawaiiPhysics->WorldDampingLocationCurveData = Node.WorldDampingLocationCurveData;
 	KawaiiPhysics->WorldDampingRotationCurveData = Node.WorldDampingRotationCurveData;
@@ -178,8 +207,10 @@ void UAnimGraphNode_KawaiiPhysics::CopyNodeDataToPreviewNode(FAnimNode_Base* Ani
 	// SyncBone
 	KawaiiPhysics->SyncBones = Node.SyncBones;
 
-	// Reset for sync without compile
-	KawaiiPhysics->ModifyBones.Empty();
+	// Force physics settings re-evaluation on next frame without resetting simulation state.
+	// Emptying ModifyBones would destroy accumulated physics state (positions, velocities),
+	// preventing the preview from reflecting any modified values.
+	KawaiiPhysics->InvalidatePhysicsSettings();
 }
 
 void UAnimGraphNode_KawaiiPhysics::CustomizeDetailTools(IDetailLayoutBuilder& DetailBuilder)

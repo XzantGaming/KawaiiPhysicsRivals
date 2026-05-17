@@ -108,60 +108,95 @@ FKawaiiPhysicsReference UKawaiiPhysicsLibrary::ResetDynamics(const FKawaiiPhysic
 
 
 FKawaiiPhysicsReference UKawaiiPhysicsLibrary::SetRootBoneName(const FKawaiiPhysicsReference& KawaiiPhysics,
-                                                               FName& RootBoneName)
+                                                               FName& RootBoneName, int32 ChainIndex)
 {
 	KawaiiPhysics.CallAnimNodeFunction<FAnimNode_KawaiiPhysics>(
 		TEXT("SetRootBoneName"),
-		[RootBoneName](FAnimNode_KawaiiPhysics& InKawaiiPhysics)
+		[RootBoneName, ChainIndex](FAnimNode_KawaiiPhysics& InKawaiiPhysics)
 		{
-			InKawaiiPhysics.RootBone = FBoneReference(RootBoneName);
-		});
-
-	return KawaiiPhysics;
-}
-
-FName UKawaiiPhysicsLibrary::GetRootBoneName(const FKawaiiPhysicsReference& KawaiiPhysics)
-{
-	FName RootBoneName;
-
-	KawaiiPhysics.CallAnimNodeFunction<FAnimNode_KawaiiPhysics>(
-		TEXT("GetRootBoneName"),
-		[&RootBoneName](FAnimNode_KawaiiPhysics& InKawaiiPhysics)
-		{
-			RootBoneName = InKawaiiPhysics.RootBone.BoneName;
-		});
-
-	return RootBoneName;
-}
-
-FKawaiiPhysicsReference UKawaiiPhysicsLibrary::SetExcludeBoneNames(const FKawaiiPhysicsReference& KawaiiPhysics,
-                                                                   TArray<FName>& ExcludeBoneNames)
-{
-	KawaiiPhysics.CallAnimNodeFunction<FAnimNode_KawaiiPhysics>(
-		TEXT("SetExcludeBoneNames"),
-		[&ExcludeBoneNames](FAnimNode_KawaiiPhysics& InKawaiiPhysics)
-		{
-			InKawaiiPhysics.ExcludeBones.Empty();
-			for (auto& ExcludeBoneName : ExcludeBoneNames)
+			if (InKawaiiPhysics.Chains.IsValidIndex(ChainIndex))
 			{
-				InKawaiiPhysics.ExcludeBones.Add(FBoneReference(ExcludeBoneName));
+				InKawaiiPhysics.Chains[ChainIndex].BoneSettings.RootBone = FBoneReference(RootBoneName);
+			}
+			else
+			{
+				InKawaiiPhysics.RootBone = FBoneReference(RootBoneName);
 			}
 		});
 
 	return KawaiiPhysics;
 }
 
-TArray<FName> UKawaiiPhysicsLibrary::GetExcludeBoneNames(const FKawaiiPhysicsReference& KawaiiPhysics)
+FName UKawaiiPhysicsLibrary::GetRootBoneName(const FKawaiiPhysicsReference& KawaiiPhysics, int32 ChainIndex)
+{
+	FName RootBoneName;
+
+	KawaiiPhysics.CallAnimNodeFunction<FAnimNode_KawaiiPhysics>(
+		TEXT("GetRootBoneName"),
+		[&RootBoneName, ChainIndex](FAnimNode_KawaiiPhysics& InKawaiiPhysics)
+		{
+			if (InKawaiiPhysics.Chains.IsValidIndex(ChainIndex))
+			{
+				RootBoneName = InKawaiiPhysics.Chains[ChainIndex].BoneSettings.RootBone.BoneName;
+			}
+			else
+			{
+				RootBoneName = InKawaiiPhysics.RootBone.BoneName;
+			}
+		});
+
+	return RootBoneName;
+}
+
+FKawaiiPhysicsReference UKawaiiPhysicsLibrary::SetExcludeBoneNames(const FKawaiiPhysicsReference& KawaiiPhysics,
+                                                                   TArray<FName>& ExcludeBoneNames, int32 ChainIndex)
+{
+	KawaiiPhysics.CallAnimNodeFunction<FAnimNode_KawaiiPhysics>(
+		TEXT("SetExcludeBoneNames"),
+		[&ExcludeBoneNames, ChainIndex](FAnimNode_KawaiiPhysics& InKawaiiPhysics)
+		{
+			if (InKawaiiPhysics.Chains.IsValidIndex(ChainIndex))
+			{
+				InKawaiiPhysics.Chains[ChainIndex].BoneSettings.ExcludeBones.Empty();
+				for (auto& ExcludeBoneName : ExcludeBoneNames)
+				{
+					InKawaiiPhysics.Chains[ChainIndex].BoneSettings.ExcludeBones.Add(FBoneReference(ExcludeBoneName));
+				}
+			}
+			else
+			{
+				InKawaiiPhysics.ExcludeBones.Empty();
+				for (auto& ExcludeBoneName : ExcludeBoneNames)
+				{
+					InKawaiiPhysics.ExcludeBones.Add(FBoneReference(ExcludeBoneName));
+				}
+			}
+		});
+
+	return KawaiiPhysics;
+}
+
+TArray<FName> UKawaiiPhysicsLibrary::GetExcludeBoneNames(const FKawaiiPhysicsReference& KawaiiPhysics, int32 ChainIndex)
 {
 	TArray<FName> ExcludeBoneNames;
 
 	KawaiiPhysics.CallAnimNodeFunction<FAnimNode_KawaiiPhysics>(
 		TEXT("GetExcludeBoneNames"),
-		[&ExcludeBoneNames](FAnimNode_KawaiiPhysics& InKawaiiPhysics)
+		[&ExcludeBoneNames, ChainIndex](FAnimNode_KawaiiPhysics& InKawaiiPhysics)
 		{
-			for (auto& ExcludeBone : InKawaiiPhysics.ExcludeBones)
+			if (InKawaiiPhysics.Chains.IsValidIndex(ChainIndex))
 			{
-				ExcludeBoneNames.Add(ExcludeBone.BoneName);
+				for (auto& ExcludeBone : InKawaiiPhysics.Chains[ChainIndex].BoneSettings.ExcludeBones)
+				{
+					ExcludeBoneNames.Add(ExcludeBone.BoneName);
+				}
+			}
+			else
+			{
+				for (auto& ExcludeBone : InKawaiiPhysics.ExcludeBones)
+				{
+					ExcludeBoneNames.Add(ExcludeBone.BoneName);
+				}
 			}
 		});
 
@@ -171,11 +206,11 @@ TArray<FName> UKawaiiPhysicsLibrary::GetExcludeBoneNames(const FKawaiiPhysicsRef
 FKawaiiPhysicsReference UKawaiiPhysicsLibrary::AddExternalForceWithExecResult(
 	EKawaiiPhysicsAccessExternalForceResult& ExecResult,
 	const FKawaiiPhysicsReference& KawaiiPhysics,
-	FInstancedStruct& ExternalForce, UObject* Owner)
+	FInstancedStruct& ExternalForce, UObject* Owner, int32 ChainIndex)
 {
 	ExecResult = EKawaiiPhysicsAccessExternalForceResult::NotValid;
 
-	if (AddExternalForce(KawaiiPhysics, ExternalForce, Owner))
+	if (AddExternalForce(KawaiiPhysics, ExternalForce, Owner, false, ChainIndex))
 	{
 		ExecResult = EKawaiiPhysicsAccessExternalForceResult::Valid;
 	}
@@ -184,7 +219,7 @@ FKawaiiPhysicsReference UKawaiiPhysicsLibrary::AddExternalForceWithExecResult(
 }
 
 bool UKawaiiPhysicsLibrary::AddExternalForce(const FKawaiiPhysicsReference& KawaiiPhysics,
-                                             FInstancedStruct& ExternalForce, UObject* Owner, bool bIsOneShot)
+                                             FInstancedStruct& ExternalForce, UObject* Owner, bool bIsOneShot, int32 ChainIndex)
 {
 	bool bResult = false;
 
@@ -197,9 +232,16 @@ bool UKawaiiPhysicsLibrary::AddExternalForce(const FKawaiiPhysicsReference& Kawa
 
 			KawaiiPhysics.CallAnimNodeFunction<FAnimNode_KawaiiPhysics>(
 				TEXT("AddExternalForce"),
-				[&](FAnimNode_KawaiiPhysics& InKawaiiPhysics)
+				[&, ChainIndex](FAnimNode_KawaiiPhysics& InKawaiiPhysics)
 				{
-					InKawaiiPhysics.ExternalForces.Add(ExternalForce);
+					if (InKawaiiPhysics.Chains.IsValidIndex(ChainIndex))
+					{
+						InKawaiiPhysics.Chains[ChainIndex].ExternalForceSettings.ExternalForces.Add(ExternalForce);
+					}
+					else
+					{
+						InKawaiiPhysics.ExternalForces.Add(ExternalForce);
+					}
 				});
 
 			bResult = true;
@@ -258,6 +300,21 @@ bool UKawaiiPhysicsLibrary::RemoveExternalForcesFromComponent(USkeletalMeshCompo
 				if (NumRemoved > 0)
 				{
 					bResult = true;
+				}
+
+				for (auto& Chain : InKawaiiPhysics.Chains)
+				{
+					const int32 NumRemovedChain = Chain.ExternalForceSettings.ExternalForces.RemoveAll(
+						[&](FInstancedStruct& InstancedStruct)
+					{
+						const auto* ExternalForcePtr = InstancedStruct.GetMutablePtr<FKawaiiPhysics_ExternalForce>();
+						return ExternalForcePtr && ExternalForcePtr->ExternalOwner == Owner;
+					});
+
+					if (NumRemovedChain > 0)
+					{
+						bResult = true;
+					}
 				}
 			});
 	}
@@ -318,6 +375,7 @@ DEFINE_FUNCTION(UKawaiiPhysicsLibrary::execSetExternalForceWildcardProperty)
 	P_GET_STRUCT_REF(FKawaiiPhysicsReference, KawaiiPhysics);
 	P_GET_PROPERTY(FIntProperty, ExternalForceIndex);
 	P_GET_STRUCT_REF(FName, PropertyName);
+	P_GET_PROPERTY(FIntProperty, ChainIndex);
 
 	ExecResult = EKawaiiPhysicsAccessExternalForceResult::NotValid;
 
@@ -331,13 +389,18 @@ DEFINE_FUNCTION(UKawaiiPhysicsLibrary::execSetExternalForceWildcardProperty)
 
 	KawaiiPhysics.CallAnimNodeFunction<FAnimNode_KawaiiPhysics>(
 		TEXT("GetExternalForceWildcardProperty"),
-		[&ExecResult, &ExternalForceIndex, &PropertyName, &ValuePtr](FAnimNode_KawaiiPhysics& InKawaiiPhysics)
+		[&ExecResult, &ExternalForceIndex, &PropertyName, &ValuePtr, ChainIndex](FAnimNode_KawaiiPhysics& InKawaiiPhysics)
 		{
-			if (InKawaiiPhysics.ExternalForces.IsValidIndex(ExternalForceIndex) &&
-				InKawaiiPhysics.ExternalForces[ExternalForceIndex].IsValid())
+			TArray<FInstancedStruct>* ExternalForces = &InKawaiiPhysics.ExternalForces;
+			if (InKawaiiPhysics.Chains.IsValidIndex(ChainIndex))
 			{
-				const auto* ScriptStruct = InKawaiiPhysics.ExternalForces[ExternalForceIndex].GetScriptStruct();
-				auto& Force = InKawaiiPhysics.ExternalForces[ExternalForceIndex].GetMutable<
+				ExternalForces = &InKawaiiPhysics.Chains[ChainIndex].ExternalForceSettings.ExternalForces;
+			}
+			if (ExternalForces->IsValidIndex(ExternalForceIndex) &&
+				(*ExternalForces)[ExternalForceIndex].IsValid())
+			{
+				const auto* ScriptStruct = (*ExternalForces)[ExternalForceIndex].GetScriptStruct();
+				auto& Force = (*ExternalForces)[ExternalForceIndex].GetMutable<
 					FKawaiiPhysics_ExternalForce>();
 
 				if (const FProperty* Property = FindFProperty<FProperty>(ScriptStruct, PropertyName))
@@ -357,6 +420,7 @@ DEFINE_FUNCTION(UKawaiiPhysicsLibrary::execGetExternalForceWildcardProperty)
 	P_GET_STRUCT_REF(FKawaiiPhysicsReference, KawaiiPhysics);
 	P_GET_PROPERTY(FIntProperty, ExternalForceIndex);
 	P_GET_STRUCT_REF(FName, PropertyName);
+	P_GET_PROPERTY(FIntProperty, ChainIndex);
 
 	ExecResult = EKawaiiPhysicsAccessExternalForceResult::NotValid;
 
@@ -371,13 +435,18 @@ DEFINE_FUNCTION(UKawaiiPhysicsLibrary::execGetExternalForceWildcardProperty)
 	void* Result = nullptr;
 	KawaiiPhysics.CallAnimNodeFunction<FAnimNode_KawaiiPhysics>(
 		TEXT("GetExternalForceWildcardProperty"),
-		[&Result, &ExecResult, &ExternalForceIndex, &PropertyName](FAnimNode_KawaiiPhysics& InKawaiiPhysics)
+		[&Result, &ExecResult, &ExternalForceIndex, &PropertyName, ChainIndex](FAnimNode_KawaiiPhysics& InKawaiiPhysics)
 		{
-			if (InKawaiiPhysics.ExternalForces.IsValidIndex(ExternalForceIndex) &&
-				InKawaiiPhysics.ExternalForces[ExternalForceIndex].IsValid())
+			TArray<FInstancedStruct>* ExternalForces = &InKawaiiPhysics.ExternalForces;
+			if (InKawaiiPhysics.Chains.IsValidIndex(ChainIndex))
 			{
-				const auto* ScriptStruct = InKawaiiPhysics.ExternalForces[ExternalForceIndex].GetScriptStruct();
-				auto& Force = InKawaiiPhysics.ExternalForces[ExternalForceIndex].GetMutable<
+				ExternalForces = &InKawaiiPhysics.Chains[ChainIndex].ExternalForceSettings.ExternalForces;
+			}
+			if (ExternalForces->IsValidIndex(ExternalForceIndex) &&
+				(*ExternalForces)[ExternalForceIndex].IsValid())
+			{
+				const auto* ScriptStruct = (*ExternalForces)[ExternalForceIndex].GetScriptStruct();
+				auto& Force = (*ExternalForces)[ExternalForceIndex].GetMutable<
 					FKawaiiPhysics_ExternalForce>();
 
 				if (const FProperty* Property = FindFProperty<FProperty>(ScriptStruct, PropertyName))

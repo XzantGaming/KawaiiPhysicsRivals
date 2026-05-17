@@ -92,6 +92,7 @@ enum class ECollisionLimitType : uint8
 	Capsule,
 	Box,
 	Planar,
+	CapsuleBone,
 };
 
 /**
@@ -380,6 +381,14 @@ struct KAWAIIPHYSICS_API FKawaiiPhysicsSettings
 	*/
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, meta = (ClampMin = "0"), category = "KawaiiPhysics")
 	float LimitAngle = 0.0f;
+
+	/** Limit Linear */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, meta = (ClampMin = "0"), category = "KawaiiPhysics")
+	float LimitLinear = 0.0f;
+
+	/** Gravity Scale */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, category = "KawaiiPhysics")
+	float GravityScale = 1.0f;
 };
 
 /**
@@ -413,6 +422,14 @@ struct KAWAIIPHYSICS_API FKawaiiPhysicsModifyBone
 	/** Current location of the bone */
 	UPROPERTY(BlueprintReadWrite, Category = "KawaiiPhysics|ModifyBone")
 	FVector Location = FVector::ZeroVector;
+
+	/** Current rotation of the bone */
+	UPROPERTY(BlueprintReadOnly, Category = "KawaiiPhysics|ModifyBone")
+	FQuat Rotation = FQuat::Identity;
+
+	/** Offset rotation of the bone */
+	UPROPERTY(BlueprintReadOnly, Category = "KawaiiPhysics|ModifyBone")
+	FQuat OffsetRotation = FQuat::Identity;
 
 	/** Previous location of the bone */
 	UPROPERTY(BlueprintReadOnly, Category = "KawaiiPhysics|ModifyBone")
@@ -453,6 +470,22 @@ struct KAWAIIPHYSICS_API FKawaiiPhysicsModifyBone
 	/** Flag indicating if simulation should be skipped for this bone */
 	UPROPERTY(BlueprintReadOnly, Category = "KawaiiPhysics|ModifyBone")
 	bool bSkipSimulate = false;
+
+	/** Flag indicating if this bone is fixed */
+	UPROPERTY()
+	bool bFixed = false;
+
+	/** Flag indicating if this bone has a follow bone */
+	UPROPERTY()
+	bool bHasFollowBone = false;
+
+	/** Flag indicating if this bone is a child of the wave begin bone */
+	UPROPERTY()
+	bool bChildOfWaveBeginBone = false;
+
+	/** Wave amplitude for this bone */
+	UPROPERTY()
+	float WaveAmplitude = 0.0f;
 
 	/**
 	 * Checks if the bone has a parent.
@@ -554,14 +587,316 @@ struct FModifyBoneConstraint
 	}
 };
 
+UENUM()
+enum class EBoneShapeType : uint8
+{
+	Sphere,
+	Capusle,
+};
+
+USTRUCT()
+struct FBoneShape
+{
+	GENERATED_BODY()
+
+	UPROPERTY(EditAnywhere, category = "KawaiiPhysics")
+	FBoneReference DrivingBone;
+
+	UPROPERTY(EditAnywhere, category = "KawaiiPhysics")
+	EBoneShapeType ShapeType = EBoneShapeType::Sphere;
+
+	UPROPERTY(EditAnywhere, category = "KawaiiPhysics")
+	float HalfHeight = 0.0f;
+
+	UPROPERTY(EditAnywhere, category = "KawaiiPhysics")
+	FRotator OffsetRotation = FRotator::ZeroRotator;
+};
+
+USTRUCT()
+struct FBonePhysicsParams
+{
+	GENERATED_BODY()
+
+	UPROPERTY(EditAnywhere, category = "KawaiiPhysics")
+	float Damping = 0.0f;
+
+	UPROPERTY(EditAnywhere, category = "KawaiiPhysics")
+	bool bNeedEditDamping = false;
+
+	UPROPERTY(EditAnywhere, category = "KawaiiPhysics")
+	float Stiffness = 0.0f;
+
+	UPROPERTY(EditAnywhere, category = "KawaiiPhysics")
+	bool bNeedEditStiffness = false;
+
+	UPROPERTY(EditAnywhere, category = "KawaiiPhysics")
+	float SpringStiffness = 0.0f;
+
+	UPROPERTY(EditAnywhere, category = "KawaiiPhysics")
+	float WorldDampingLocation = 0.0f;
+
+	UPROPERTY(EditAnywhere, category = "KawaiiPhysics")
+	bool bNeedEditWorldDampingLocation = false;
+
+	UPROPERTY(EditAnywhere, category = "KawaiiPhysics")
+	float WorldDampingRotation = 0.0f;
+
+	UPROPERTY(EditAnywhere, category = "KawaiiPhysics")
+	bool bNeedEditWorldDampingRotation = false;
+
+	UPROPERTY(EditAnywhere, category = "KawaiiPhysics")
+	float Radius = 0.0f;
+
+	UPROPERTY(EditAnywhere, category = "KawaiiPhysics")
+	bool bNeedEditRadius = false;
+
+	UPROPERTY(EditAnywhere, category = "KawaiiPhysics")
+	float LimitAngle = 0.0f;
+
+	UPROPERTY(EditAnywhere, category = "KawaiiPhysics")
+	bool bNeedEditLimitAngle = false;
+
+	UPROPERTY(EditAnywhere, category = "KawaiiPhysics")
+	float LimitLinear = 0.0f;
+
+	UPROPERTY(EditAnywhere, category = "KawaiiPhysics")
+	bool bNeedEditLimitLinear = false;
+
+	UPROPERTY(EditAnywhere, category = "KawaiiPhysics")
+	float GravityScale = 1.0f;
+
+	UPROPERTY(EditAnywhere, category = "KawaiiPhysics")
+	bool bNeedEditGravityScale = false;
+
+	UPROPERTY(EditAnywhere, category = "KawaiiPhysics")
+	bool bLimitRelativeRotation = false;
+
+	UPROPERTY(EditAnywhere, category = "KawaiiPhysics")
+	bool bAllowPositiveRelativeRotationX = false;
+
+	UPROPERTY(EditAnywhere, category = "KawaiiPhysics")
+	bool bAllowNegativeRelativeRotationX = false;
+
+	UPROPERTY(EditAnywhere, category = "KawaiiPhysics")
+	bool bAllowPositiveRelativeRotationY = false;
+
+	UPROPERTY(EditAnywhere, category = "KawaiiPhysics")
+	bool bAllowNegativeRelativeRotationY = false;
+
+	UPROPERTY(EditAnywhere, category = "KawaiiPhysics")
+	bool bAllowPositiveRelativeRotationZ = false;
+
+	UPROPERTY(EditAnywhere, category = "KawaiiPhysics")
+	bool bAllowNegativeRelativeRotationZ = false;
+};
+
+USTRUCT()
+struct FBoneSettings
+{
+	GENERATED_BODY()
+
+	UPROPERTY(EditAnywhere, category = "KawaiiPhysics")
+	FBoneReference RootBone;
+
+	UPROPERTY(EditAnywhere, category = "KawaiiPhysics")
+	TArray<FBoneReference> ExcludeBones;
+
+	UPROPERTY(EditAnywhere, category = "KawaiiPhysics")
+	bool bRootBoneSimulate = false;
+
+	UPROPERTY(EditAnywhere, category = "KawaiiPhysics")
+	bool bShouldFixTailBone = false;
+
+	UPROPERTY(EditAnywhere, category = "KawaiiPhysics")
+	FBoneReference FixedBone;
+
+	UPROPERTY(EditAnywhere, category = "KawaiiPhysics")
+	FBoneReference FollowBone;
+
+	UPROPERTY(EditAnywhere, category = "KawaiiPhysics", meta=(TitleProperty="RootBone"))
+	TArray<FKawaiiPhysicsRootBoneSetting> AdditionalRootBones;
+
+	UPROPERTY(EditAnywhere, category = "KawaiiPhysics")
+	float DummyBoneLength = 0.0f;
+
+	UPROPERTY(EditAnywhere, category = "KawaiiPhysics")
+	EBoneForwardAxis BoneForwardAxis = EBoneForwardAxis::X_Positive;
+};
+
+USTRUCT()
+struct FWaveAnimSettings
+{
+	GENERATED_BODY()
+
+	UPROPERTY(EditAnywhere, category = "KawaiiPhysics")
+	bool bEnableWaveAnim = false;
+
+	UPROPERTY(EditAnywhere, category = "KawaiiPhysics")
+	FBoneReference WaveBeginBone;
+
+	UPROPERTY(EditAnywhere, category = "KawaiiPhysics")
+	float WaveFrequncy = 1.0f;
+
+	UPROPERTY(EditAnywhere, category = "KawaiiPhysics")
+	float WaveNum = 1.0f;
+
+	UPROPERTY(EditAnywhere, category = "KawaiiPhysics")
+	FVector WaveDirection = FVector::UpVector;
+
+	UPROPERTY(EditAnywhere, category = "KawaiiPhysics")
+	float WaveAmplitude = 0.0f;
+
+	UPROPERTY(EditAnywhere, category = "KawaiiPhysics")
+	FRuntimeFloatCurve WaveAmplitudeCurveData;
+};
+
+USTRUCT()
+struct FBoneChainPhysicsSettings
+{
+	GENERATED_BODY()
+
+	UPROPERTY(EditAnywhere, category = "KawaiiPhysics")
+	FKawaiiPhysicsSettings PhysicsSettings;
+
+	UPROPERTY(EditAnywhere, category = "KawaiiPhysics")
+	TArray<FBoneShape> CustomShapes;
+
+	UPROPERTY(EditAnywhere, category = "KawaiiPhysics")
+	bool bUseCurve = true;
+
+	UPROPERTY(EditAnywhere, category = "KawaiiPhysics")
+	TArray<FBonePhysicsParams> PhysicsParamsPerBone;
+
+	UPROPERTY(EditAnywhere, category = "KawaiiPhysics")
+	float TeleportDistanceThreshold = 300.0f;
+
+	UPROPERTY(EditAnywhere, category = "KawaiiPhysics")
+	float TeleportRotationThreshold = 10.0f;
+
+	UPROPERTY(EditAnywhere, category = "KawaiiPhysics")
+	EPlanarConstraint PlanarConstraint = EPlanarConstraint::None;
+
+	UPROPERTY(EditAnywhere, category = "KawaiiPhysics")
+	FRuntimeFloatCurve LimitLinearCurveData;
+
+	UPROPERTY(EditAnywhere, category = "KawaiiPhysics")
+	FRuntimeFloatCurve GravityCurveData;
+
+	UPROPERTY(EditAnywhere, AdvancedDisplay, category = "KawaiiPhysics")
+	FRuntimeFloatCurve DampingCurveData;
+
+	UPROPERTY(EditAnywhere, AdvancedDisplay, category = "KawaiiPhysics")
+	FRuntimeFloatCurve StiffnessCurveData;
+
+	UPROPERTY(EditAnywhere, AdvancedDisplay, category = "KawaiiPhysics")
+	FRuntimeFloatCurve WorldDampingLocationCurveData;
+
+	UPROPERTY(EditAnywhere, AdvancedDisplay, category = "KawaiiPhysics")
+	FRuntimeFloatCurve WorldDampingRotationCurveData;
+
+	UPROPERTY(EditAnywhere, AdvancedDisplay, category = "KawaiiPhysics")
+	FRuntimeFloatCurve RadiusCurveData;
+
+	UPROPERTY(EditAnywhere, AdvancedDisplay, category = "KawaiiPhysics")
+	FRuntimeFloatCurve LimitAngleCurveData;
+};
+
+USTRUCT()
+struct FBoneConstraintSettings
+{
+	GENERATED_BODY()
+
+	UPROPERTY(EditAnywhere, category = "KawaiiPhysics")
+	EXPBDComplianceType BoneConstraintGlobalComplianceType = EXPBDComplianceType::Leather;
+
+	UPROPERTY(EditAnywhere, category = "KawaiiPhysics")
+	int32 BoneConstraintIterationCountBeforeCollision = 1;
+
+	UPROPERTY(EditAnywhere, category = "KawaiiPhysics")
+	int32 BoneConstraintIterationCountAfterCollision = 1;
+
+	UPROPERTY(EditAnywhere, category = "KawaiiPhysics")
+	bool bAutoAddChildDummyBoneConstraint = true;
+
+	UPROPERTY(EditAnywhere, category = "KawaiiPhysics")
+	TArray<FModifyBoneConstraint> BoneConstraints;
+
+	UPROPERTY(EditAnywhere, category = "KawaiiPhysics")
+	TObjectPtr<UKawaiiPhysicsBoneConstraintsDataAsset> BoneConstraintsDataAsset = nullptr;
+
+	UPROPERTY(EditAnywhere, category = "KawaiiPhysics", AdvancedDisplay)
+	TArray<FModifyBoneConstraint> BoneConstraintsData;
+};
+
+USTRUCT()
+struct FExternalForceSettings
+{
+	GENERATED_BODY()
+
+	UPROPERTY(EditAnywhere, category = "KawaiiPhysics")
+	FVector Gravity = FVector::ZeroVector;
+
+	UPROPERTY(EditAnywhere, category = "KawaiiPhysics")
+	bool bEnableWind = false;
+
+	UPROPERTY(EditAnywhere, category = "KawaiiPhysics")
+	float WindScale = 1.0f;
+
+	UPROPERTY(EditAnywhere, category = "KawaiiPhysics")
+	TArray<FInstancedStruct> ExternalForces;
+
+	UPROPERTY(EditAnywhere, category = "KawaiiPhysics")
+	TArray<TObjectPtr<UKawaiiPhysics_CustomExternalForce>> CustomExternalForces;
+};
+
+USTRUCT()
+struct FKawaiiPhysicsChain
+{
+	GENERATED_BODY()
+
+	UPROPERTY(EditAnywhere, category = "KawaiiPhysics")
+	FBoneSettings BoneSettings;
+
+	UPROPERTY(EditAnywhere, category = "KawaiiPhysics")
+	FBoneChainPhysicsSettings PhysicsSettings;
+
+	UPROPERTY(EditAnywhere, category = "KawaiiPhysics")
+	FBoneConstraintSettings BoneConstraintSettings;
+
+	UPROPERTY(EditAnywhere, category = "KawaiiPhysics")
+	FExternalForceSettings ExternalForceSettings;
+
+	UPROPERTY(EditAnywhere, category = "KawaiiPhysics")
+	FWaveAnimSettings WaveAnimSettings;
+
+	UPROPERTY(VisibleAnywhere, category = "KawaiiPhysics")
+	TArray<FKawaiiPhysicsModifyBone> ModifyBones;
+
+	UPROPERTY(Transient)
+	float TotalBoneLength = 0.0f;
+
+	UPROPERTY(Transient)
+	float WaveBeginBoneLengthFromRoot = 0.0f;
+
+	UPROPERTY(EditAnywhere, category = "KawaiiPhysics")
+	int32 AutoConfiguredLODThreshold = -1;
+};
+
 USTRUCT(BlueprintType)
 struct KAWAIIPHYSICS_API FAnimNode_KawaiiPhysics : public FAnimNode_SkeletalControlBase
 {
-	GENERATED_USTRUCT_BODY()
+    GENERATED_USTRUCT_BODY()
+
+	/** 
+	* S8 Multi-Chain Architecture: Array of physics chains evaluated by this node
+	*/
+	UPROPERTY(EditAnywhere, Category = "Chains", meta = (TitleProperty = "BoneSettings"))
+	TArray<FKawaiiPhysicsChain> Chains;
 
 	/** 
 	* 指定ボーンとそれ以下のボーンを制御対象に
 	* Control the specified bone and the bones below it
+	* @deprecated Use Chains[X].BoneSettings.RootBone instead
 	*/
 	UPROPERTY(EditAnywhere, Category = "Bones")
 	FBoneReference RootBone;
@@ -699,6 +1034,10 @@ struct KAWAIIPHYSICS_API FAnimNode_KawaiiPhysics : public FAnimNode_SkeletalCont
 	* Corrects the Physics Settings/Damping parameters applied to each bone.
 	* Multiplies each parameter by the curve value for "Length from RootBone to specific bone / Length from RootBone to end bone" (0.0~1.0).
 	*/
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Physics Settings", AdvancedDisplay,
+		meta = (PinHiddenByDefault, DisplayName = "Gravity Scale by Bone Length Rate"))
+	FRuntimeFloatCurve GravityCurveData;
+
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Physics Settings", AdvancedDisplay,
 		meta = (PinHiddenByDefault, DisplayName = "Damping Rate by Bone Length Rate"))
 	FRuntimeFloatCurve DampingCurveData;
@@ -1045,6 +1384,9 @@ struct KAWAIIPHYSICS_API FAnimNode_KawaiiPhysics : public FAnimNode_SkeletalCont
 	UPROPERTY(BlueprintReadOnly, Category = "KawaiiPhysics")
 	float DeltaTime = 0.0f;
 
+	/** Force physics settings to be re-evaluated on the next frame. */
+	void InvalidatePhysicsSettings() { bInitPhysicsSettings = false; }
+
 private:
 	/**
 	 * Flag indicating whether the physics settings have been initialized.
@@ -1139,6 +1481,9 @@ public:
 	virtual bool HasPreUpdate() const override;
 	virtual void PreUpdate(const UAnimInstance* InAnimInstance) override;
 	// End of FAnimNode_SkeletalControlBase interface
+
+	/** Evaluate a single physics chain (used for multi-chain architecture) */
+	void EvaluateSingleChain(FComponentSpacePoseContext& Output, TArray<FBoneTransform>& OutBoneTransforms);
 
 #if WITH_EDITORONLY_DATA
 

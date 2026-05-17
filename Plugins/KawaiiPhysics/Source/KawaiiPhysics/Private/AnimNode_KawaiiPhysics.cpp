@@ -135,6 +135,10 @@ void FAnimNode_KawaiiPhysics::Initialize_AnyThread(const FAnimationInitializeCon
 	ApplyBoneConstraintDataAsset(RequiredBones);
 
 	ModifyBones.Empty();
+	for (auto& Chain : Chains)
+	{
+		Chain.ModifyBones.Empty();
+	}
 
 	// For Avoiding Zero Divide in the first frame
 	DeltaTimeOld = 1.0f / TargetFramerate;
@@ -145,6 +149,17 @@ void FAnimNode_KawaiiPhysics::Initialize_AnyThread(const FAnimationInitializeCon
 		{
 			auto& Force = ExternalForces[i].GetMutable<FKawaiiPhysics_ExternalForce>();
 			Force.Initialize(Context);
+		}
+	}
+	for (auto& Chain : Chains)
+	{
+		for (int i = 0; i < Chain.ExternalForceSettings.ExternalForces.Num(); ++i)
+		{
+			if (Chain.ExternalForceSettings.ExternalForces[i].IsValid())
+			{
+				auto& Force = Chain.ExternalForceSettings.ExternalForces[i].GetMutable<FKawaiiPhysics_ExternalForce>();
+				Force.Initialize(Context);
+			}
 		}
 	}
 
@@ -412,6 +427,100 @@ void FAnimNode_KawaiiPhysics::AnimDrawDebugBox(FComponentSpacePoseContext& Outpu
 void FAnimNode_KawaiiPhysics::EvaluateSkeletalControl_AnyThread(FComponentSpacePoseContext& Output,
                                                                 TArray<FBoneTransform>& OutBoneTransforms)
 {
+	if (Chains.Num() > 0)
+	{
+		for (FKawaiiPhysicsChain& Chain : Chains)
+		{
+			Swap(ModifyBones, Chain.ModifyBones);
+
+			FBoneReference BackupRootBone = RootBone;
+			TArray<FBoneReference> BackupExcludeBones = ExcludeBones;
+			TArray<FKawaiiPhysicsRootBoneSetting> BackupAdditionalRootBones = AdditionalRootBones;
+			float BackupDummyBoneLength = DummyBoneLength;
+			EBoneForwardAxis BackupBoneForwardAxis = BoneForwardAxis;
+			FKawaiiPhysicsSettings BackupPhysicsSettings = PhysicsSettings;
+			float BackupTeleportDistanceThreshold = TeleportDistanceThreshold;
+			float BackupTeleportRotationThreshold = TeleportRotationThreshold;
+			EPlanarConstraint BackupPlanarConstraint = PlanarConstraint;
+			FRuntimeFloatCurve BackupGravityCurveData = GravityCurveData;
+			FRuntimeFloatCurve BackupDampingCurveData = DampingCurveData;
+			FRuntimeFloatCurve BackupStiffnessCurveData = StiffnessCurveData;
+			FRuntimeFloatCurve BackupWorldDampingLocationCurveData = WorldDampingLocationCurveData;
+			FRuntimeFloatCurve BackupWorldDampingRotationCurveData = WorldDampingRotationCurveData;
+			FRuntimeFloatCurve BackupRadiusCurveData = RadiusCurveData;
+			FRuntimeFloatCurve BackupLimitAngleCurveData = LimitAngleCurveData;
+			TArray<FModifyBoneConstraint> BackupBoneConstraints = BoneConstraints;
+			TArray<FModifyBoneConstraint> BackupBoneConstraintsData = BoneConstraintsData;
+			FVector BackupGravity = Gravity;
+			bool BackupEnableWind = bEnableWind;
+			float BackupWindScale = WindScale;
+			TArray<FInstancedStruct> BackupExternalForces = ExternalForces;
+			TArray<TObjectPtr<UKawaiiPhysics_CustomExternalForce>> BackupCustomExternalForces = CustomExternalForces;
+
+			RootBone = Chain.BoneSettings.RootBone;
+			ExcludeBones = Chain.BoneSettings.ExcludeBones;
+			AdditionalRootBones = Chain.BoneSettings.AdditionalRootBones;
+			DummyBoneLength = Chain.BoneSettings.DummyBoneLength;
+			BoneForwardAxis = Chain.BoneSettings.BoneForwardAxis;
+			PhysicsSettings = Chain.PhysicsSettings.PhysicsSettings;
+			TeleportDistanceThreshold = Chain.PhysicsSettings.TeleportDistanceThreshold;
+			TeleportRotationThreshold = Chain.PhysicsSettings.TeleportRotationThreshold;
+			PlanarConstraint = Chain.PhysicsSettings.PlanarConstraint;
+			GravityCurveData = Chain.PhysicsSettings.GravityCurveData;
+			DampingCurveData = Chain.PhysicsSettings.DampingCurveData;
+			StiffnessCurveData = Chain.PhysicsSettings.StiffnessCurveData;
+			WorldDampingLocationCurveData = Chain.PhysicsSettings.WorldDampingLocationCurveData;
+			WorldDampingRotationCurveData = Chain.PhysicsSettings.WorldDampingRotationCurveData;
+			RadiusCurveData = Chain.PhysicsSettings.RadiusCurveData;
+			LimitAngleCurveData = Chain.PhysicsSettings.LimitAngleCurveData;
+			BoneConstraints = Chain.BoneConstraintSettings.BoneConstraints;
+			BoneConstraintsData = Chain.BoneConstraintSettings.BoneConstraintsData;
+			Gravity = Chain.ExternalForceSettings.Gravity;
+			bEnableWind = Chain.ExternalForceSettings.bEnableWind;
+			WindScale = Chain.ExternalForceSettings.WindScale;
+			ExternalForces = Chain.ExternalForceSettings.ExternalForces;
+			CustomExternalForces = Chain.ExternalForceSettings.CustomExternalForces;
+
+			bInitPhysicsSettings = false;
+			TArray<FBoneTransform> ChainBoneTransforms;
+			EvaluateSingleChain(Output, ChainBoneTransforms);
+			OutBoneTransforms.Append(ChainBoneTransforms);
+
+			RootBone = BackupRootBone;
+			ExcludeBones = BackupExcludeBones;
+			AdditionalRootBones = BackupAdditionalRootBones;
+			DummyBoneLength = BackupDummyBoneLength;
+			BoneForwardAxis = BackupBoneForwardAxis;
+			PhysicsSettings = BackupPhysicsSettings;
+			TeleportDistanceThreshold = BackupTeleportDistanceThreshold;
+			TeleportRotationThreshold = BackupTeleportRotationThreshold;
+			PlanarConstraint = BackupPlanarConstraint;
+			GravityCurveData = BackupGravityCurveData;
+			DampingCurveData = BackupDampingCurveData;
+			StiffnessCurveData = BackupStiffnessCurveData;
+			WorldDampingLocationCurveData = BackupWorldDampingLocationCurveData;
+			WorldDampingRotationCurveData = BackupWorldDampingRotationCurveData;
+			RadiusCurveData = BackupRadiusCurveData;
+			LimitAngleCurveData = BackupLimitAngleCurveData;
+			BoneConstraints = BackupBoneConstraints;
+			BoneConstraintsData = BackupBoneConstraintsData;
+			Gravity = BackupGravity;
+			bEnableWind = BackupEnableWind;
+			WindScale = BackupWindScale;
+			ExternalForces = BackupExternalForces;
+			CustomExternalForces = BackupCustomExternalForces;
+
+			Swap(ModifyBones, Chain.ModifyBones);
+		}
+		return;
+	}
+
+	EvaluateSingleChain(Output, OutBoneTransforms);
+}
+
+void FAnimNode_KawaiiPhysics::EvaluateSingleChain(FComponentSpacePoseContext& Output,
+                                                                TArray<FBoneTransform>& OutBoneTransforms)
+{
 	SCOPE_CYCLE_COUNTER(STAT_KawaiiPhysics_Eval);
 
 	check(OutBoneTransforms.Num() == 0);
@@ -582,6 +691,25 @@ bool FAnimNode_KawaiiPhysics::IsValidToEvaluate(const USkeleton* Skeleton, const
 	}
 #endif
 
+	if (Chains.Num() > 0)
+	{
+		for (auto& Chain : Chains)
+		{
+			if (!Chain.BoneSettings.RootBone.BoneName.IsValid())
+			{
+				return false;
+			}
+			for (auto& AdditionalRootBone : Chain.BoneSettings.AdditionalRootBones)
+			{
+				if (!AdditionalRootBone.RootBone.BoneName.IsValid())
+				{
+					return false;
+				}
+			}
+		}
+		return true;
+	}
+
 	if (!RootBone.BoneName.IsValid())
 	{
 		return false;
@@ -715,6 +843,38 @@ void FAnimNode_KawaiiPhysics::InitializeBoneReferences(const FBoneContainer& Req
 	for (auto& Bone : ModifyBones)
 	{
 		Bone.BoneRef.Initialize(RequiredBones);
+	}
+
+	for (auto& Chain : Chains)
+	{
+		Chain.BoneSettings.RootBone.Initialize(RequiredBones);
+		for (auto& ExcludeBone : Chain.BoneSettings.ExcludeBones)
+		{
+			ExcludeBone.Initialize(RequiredBones);
+		}
+		for (auto& AdditionalRootBone : Chain.BoneSettings.AdditionalRootBones)
+		{
+			AdditionalRootBone.RootBone.Initialize(RequiredBones);
+		}
+		Chain.BoneSettings.FixedBone.Initialize(RequiredBones);
+		Chain.BoneSettings.FollowBone.Initialize(RequiredBones);
+		for (auto& Bone : Chain.ModifyBones)
+		{
+			Bone.BoneRef.Initialize(RequiredBones);
+		}
+		for (auto& CustomShape : Chain.PhysicsSettings.CustomShapes)
+		{
+			CustomShape.DrivingBone.Initialize(RequiredBones);
+		}
+		for (auto& BoneConstraint : Chain.BoneConstraintSettings.BoneConstraints)
+		{
+			BoneConstraint.InitializeBone(RequiredBones);
+		}
+		for (auto& BoneConstraint : Chain.BoneConstraintSettings.BoneConstraintsData)
+		{
+			BoneConstraint.InitializeBone(RequiredBones);
+		}
+		Chain.WaveAnimSettings.WaveBeginBone.Initialize(RequiredBones);
 	}
 
 	SimulationBaseBone.Initialize(RequiredBones);
@@ -1051,35 +1211,41 @@ void FAnimNode_KawaiiPhysics::UpdatePhysicsSettingsOfModifyBones()
 
 		const float LengthRate = Bone.LengthRateFromRoot;
 
+		// Curve IS the value. PhysicsSettings base value is used as fallback when curve has no keys.
+		// GravityScale
+		Bone.PhysicsSettings.GravityScale = FMath::Max(
+			GravityCurveData.GetRichCurveConst()->Eval(
+				LengthRate, PhysicsSettings.GravityScale), 0.0f);
+
 		// Damping
 		Bone.PhysicsSettings.Damping = FMath::Clamp(
-			PhysicsSettings.Damping * DampingCurveData.GetRichCurveConst()->Eval(
-				LengthRate, 1.0f), 0.0f, 1.0f);
+			DampingCurveData.GetRichCurveConst()->Eval(
+				LengthRate, PhysicsSettings.Damping), 0.0f, 1.0f);
 		
-		// WorldLocationDamping
-		Bone.PhysicsSettings.WorldDampingLocation = FMath::Clamp(
-			PhysicsSettings.WorldDampingLocation * WorldDampingLocationCurveData.GetRichCurveConst()->Eval(
-				LengthRate, 1.0f), 0.0f, 1.0f);
-		
-		// WorldRotationDamping
-		Bone.PhysicsSettings.WorldDampingRotation = FMath::Clamp(
-			PhysicsSettings.WorldDampingRotation * WorldDampingRotationCurveData.GetRichCurveConst()->Eval(
-				LengthRate, 1.0f), 0.0f, 1.0f);
+		// WorldLocationDamping (allow > 1.0 for over-damping/lag behavior)
+		Bone.PhysicsSettings.WorldDampingLocation = FMath::Max(
+			WorldDampingLocationCurveData.GetRichCurveConst()->Eval(
+				LengthRate, PhysicsSettings.WorldDampingLocation), 0.0f);
+
+		// WorldRotationDamping (allow > 1.0 for over-damping/lag behavior)
+		Bone.PhysicsSettings.WorldDampingRotation = FMath::Max(
+			WorldDampingRotationCurveData.GetRichCurveConst()->Eval(
+				LengthRate, PhysicsSettings.WorldDampingRotation), 0.0f);
 		
 		// Stiffness
 		Bone.PhysicsSettings.Stiffness = FMath::Clamp(
-			PhysicsSettings.Stiffness * StiffnessCurveData.GetRichCurveConst()->Eval(
-				LengthRate, 1.0f), 0.0f, 1.0f);
+			StiffnessCurveData.GetRichCurveConst()->Eval(
+				LengthRate, PhysicsSettings.Stiffness), 0.0f, 1.0f);
 		
 		// Radius
 		Bone.PhysicsSettings.Radius = FMath::Max(
-			PhysicsSettings.Radius * RadiusCurveData.GetRichCurveConst()->Eval(
-				LengthRate, 1.0f), 0.0f);
+			RadiusCurveData.GetRichCurveConst()->Eval(
+				LengthRate, PhysicsSettings.Radius), 0.0f);
 		
 		// LimitAngle
 		Bone.PhysicsSettings.LimitAngle = FMath::Max(
-			PhysicsSettings.LimitAngle * LimitAngleCurveData.GetRichCurveConst()->Eval(
-				LengthRate, 1.0f), 0.0f);
+			LimitAngleCurveData.GetRichCurveConst()->Eval(
+				LengthRate, PhysicsSettings.LimitAngle), 0.0f);
 	}
 }
 
@@ -1492,16 +1658,17 @@ void FAnimNode_KawaiiPhysics::Simulate(FKawaiiPhysicsModifyBone& Bone, const FSc
 		Velocity += GetWindVelocity(Output, Scene, Bone) * TargetFramerate;
 	}
 
-	// Gravity (apply just after wind; keep legacy compatibility via separate position term)
+	// Gravity (apply just after wind; scale per bone via GravityScale)
+	const FVector BoneGravity = GravityInSimSpace * Bone.PhysicsSettings.GravityScale;
 	if (!bUseLegacyGravity)
 	{
 		// AnimDynamics-like: integrate acceleration into velocity
-		Velocity += GravityInSimSpace * DeltaTime;
+		Velocity += BoneGravity * DeltaTime;
 	}
 	else
 	{
 		// Legacy gravity: add 0.5 * g * dt^2 to position
-		Bone.Location += 0.5 * GravityInSimSpace * DeltaTime * DeltaTime;
+		Bone.Location += 0.5 * BoneGravity * DeltaTime * DeltaTime;
 	}
 
 	for (int i = 0; i < ExternalForces.Num(); ++i)
