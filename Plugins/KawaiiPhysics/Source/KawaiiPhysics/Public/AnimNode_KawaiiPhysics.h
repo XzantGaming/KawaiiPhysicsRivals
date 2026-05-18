@@ -853,30 +853,6 @@ struct FExternalForceSettings
 };
 
 USTRUCT()
-struct FLimitSettings
-{
-	GENERATED_BODY()
-
-	UPROPERTY(EditAnywhere, category = "KawaiiPhysics")
-	TArray<FSphericalLimit> SphericalLimits;
-
-	UPROPERTY(EditAnywhere, category = "KawaiiPhysics")
-	TArray<FCapsuleLimit> CapsuleLimits;
-
-	UPROPERTY(EditAnywhere, category = "KawaiiPhysics")
-	TArray<FBoxLimit> BoxLimits;
-
-	UPROPERTY(EditAnywhere, category = "KawaiiPhysics")
-	TArray<FPlanarLimit> PlanarLimits;
-
-	UPROPERTY(EditAnywhere, category = "KawaiiPhysics")
-	TObjectPtr<UKawaiiPhysicsLimitsDataAsset> LimitsDataAsset = nullptr;
-
-	UPROPERTY(EditAnywhere, category = "KawaiiPhysics")
-	TObjectPtr<UPhysicsAsset> PhysicsAssetForLimits = nullptr;
-};
-
-USTRUCT()
 struct FKawaiiPhysicsChain
 {
 	GENERATED_BODY()
@@ -892,9 +868,6 @@ struct FKawaiiPhysicsChain
 
 	UPROPERTY(EditAnywhere, category = "KawaiiPhysics")
 	FExternalForceSettings ExternalForceSettings;
-
-	UPROPERTY(EditAnywhere, category = "KawaiiPhysics")
-	FLimitSettings LimitSettings;
 
 	UPROPERTY(EditAnywhere, category = "KawaiiPhysics")
 	FWaveAnimSettings WaveAnimSettings;

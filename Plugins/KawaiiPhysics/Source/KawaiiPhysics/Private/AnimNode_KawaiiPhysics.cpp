@@ -457,12 +457,6 @@ void FAnimNode_KawaiiPhysics::EvaluateSkeletalControl_AnyThread(FComponentSpaceP
 			float BackupWindScale = WindScale;
 			TArray<FInstancedStruct> BackupExternalForces = ExternalForces;
 			TArray<TObjectPtr<UKawaiiPhysics_CustomExternalForce>> BackupCustomExternalForces = CustomExternalForces;
-			TArray<FSphericalLimit> BackupSphericalLimits = SphericalLimits;
-			TArray<FCapsuleLimit> BackupCapsuleLimits = CapsuleLimits;
-			TArray<FBoxLimit> BackupBoxLimits = BoxLimits;
-			TArray<FPlanarLimit> BackupPlanarLimits = PlanarLimits;
-			TObjectPtr<UKawaiiPhysicsLimitsDataAsset> BackupLimitsDataAsset = LimitsDataAsset;
-			TObjectPtr<UPhysicsAsset> BackupPhysicsAssetForLimits = PhysicsAssetForLimits;
 
 			RootBone = Chain.BoneSettings.RootBone;
 			ExcludeBones = Chain.BoneSettings.ExcludeBones;
@@ -488,12 +482,6 @@ void FAnimNode_KawaiiPhysics::EvaluateSkeletalControl_AnyThread(FComponentSpaceP
 			WindScale = Chain.ExternalForceSettings.WindScale;
 			ExternalForces = Chain.ExternalForceSettings.ExternalForces;
 			CustomExternalForces = Chain.ExternalForceSettings.CustomExternalForces;
-			SphericalLimits = Chain.LimitSettings.SphericalLimits;
-			CapsuleLimits = Chain.LimitSettings.CapsuleLimits;
-			BoxLimits = Chain.LimitSettings.BoxLimits;
-			PlanarLimits = Chain.LimitSettings.PlanarLimits;
-			LimitsDataAsset = Chain.LimitSettings.LimitsDataAsset;
-			PhysicsAssetForLimits = Chain.LimitSettings.PhysicsAssetForLimits;
 
 			bInitPhysicsSettings = false;
 			TArray<FBoneTransform> ChainBoneTransforms;
@@ -524,12 +512,6 @@ void FAnimNode_KawaiiPhysics::EvaluateSkeletalControl_AnyThread(FComponentSpaceP
 			WindScale = BackupWindScale;
 			ExternalForces = BackupExternalForces;
 			CustomExternalForces = BackupCustomExternalForces;
-			SphericalLimits = BackupSphericalLimits;
-			CapsuleLimits = BackupCapsuleLimits;
-			BoxLimits = BackupBoxLimits;
-			PlanarLimits = BackupPlanarLimits;
-			LimitsDataAsset = BackupLimitsDataAsset;
-			PhysicsAssetForLimits = BackupPhysicsAssetForLimits;
 
 			Swap(ModifyBones, Chain.ModifyBones);
 		}
