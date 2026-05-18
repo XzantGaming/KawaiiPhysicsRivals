@@ -834,6 +834,9 @@ struct FExternalForceSettings
 	GENERATED_BODY()
 
 	UPROPERTY(EditAnywhere, category = "KawaiiPhysics")
+	bool bDisableAllExternalForces = false;
+
+	UPROPERTY(EditAnywhere, category = "KawaiiPhysics")
 	FVector Gravity = FVector::ZeroVector;
 
 	UPROPERTY(EditAnywhere, category = "KawaiiPhysics")
@@ -847,6 +850,30 @@ struct FExternalForceSettings
 
 	UPROPERTY(EditAnywhere, category = "KawaiiPhysics")
 	TArray<TObjectPtr<UKawaiiPhysics_CustomExternalForce>> CustomExternalForces;
+};
+
+USTRUCT()
+struct FLimitSettings
+{
+	GENERATED_BODY()
+
+	UPROPERTY(EditAnywhere, category = "KawaiiPhysics")
+	TArray<FSphericalLimit> SphericalLimits;
+
+	UPROPERTY(EditAnywhere, category = "KawaiiPhysics")
+	TArray<FCapsuleLimit> CapsuleLimits;
+
+	UPROPERTY(EditAnywhere, category = "KawaiiPhysics")
+	TArray<FBoxLimit> BoxLimits;
+
+	UPROPERTY(EditAnywhere, category = "KawaiiPhysics")
+	TArray<FPlanarLimit> PlanarLimits;
+
+	UPROPERTY(EditAnywhere, category = "KawaiiPhysics")
+	TObjectPtr<UKawaiiPhysicsLimitsDataAsset> LimitsDataAsset = nullptr;
+
+	UPROPERTY(EditAnywhere, category = "KawaiiPhysics")
+	TObjectPtr<UPhysicsAsset> PhysicsAssetForLimits = nullptr;
 };
 
 USTRUCT()
@@ -865,6 +892,9 @@ struct FKawaiiPhysicsChain
 
 	UPROPERTY(EditAnywhere, category = "KawaiiPhysics")
 	FExternalForceSettings ExternalForceSettings;
+
+	UPROPERTY(EditAnywhere, category = "KawaiiPhysics")
+	FLimitSettings LimitSettings;
 
 	UPROPERTY(EditAnywhere, category = "KawaiiPhysics")
 	FWaveAnimSettings WaveAnimSettings;
@@ -1243,6 +1273,9 @@ struct KAWAIIPHYSICS_API FAnimNode_KawaiiPhysics : public FAnimNode_SkeletalCont
 	*/
 	UPROPERTY(EditAnywhere, Category = "Sync Bone", meta=(TitleProperty="{Bone}"))
 	TArray<FKawaiiPhysicsSyncBone> SyncBones;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "ExternalForce", meta = (PinHiddenByDefault))
+	bool bDisableAllExternalForces = false;
 
 	/**
 	* 重力

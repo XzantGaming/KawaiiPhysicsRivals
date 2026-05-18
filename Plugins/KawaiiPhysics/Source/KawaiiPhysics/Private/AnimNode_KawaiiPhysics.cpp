@@ -452,10 +452,17 @@ void FAnimNode_KawaiiPhysics::EvaluateSkeletalControl_AnyThread(FComponentSpaceP
 			TArray<FModifyBoneConstraint> BackupBoneConstraints = BoneConstraints;
 			TArray<FModifyBoneConstraint> BackupBoneConstraintsData = BoneConstraintsData;
 			FVector BackupGravity = Gravity;
+			bool BackupDisableAllExternalForces = bDisableAllExternalForces;
 			bool BackupEnableWind = bEnableWind;
 			float BackupWindScale = WindScale;
 			TArray<FInstancedStruct> BackupExternalForces = ExternalForces;
 			TArray<TObjectPtr<UKawaiiPhysics_CustomExternalForce>> BackupCustomExternalForces = CustomExternalForces;
+			TArray<FSphericalLimit> BackupSphericalLimits = SphericalLimits;
+			TArray<FCapsuleLimit> BackupCapsuleLimits = CapsuleLimits;
+			TArray<FBoxLimit> BackupBoxLimits = BoxLimits;
+			TArray<FPlanarLimit> BackupPlanarLimits = PlanarLimits;
+			TObjectPtr<UKawaiiPhysicsLimitsDataAsset> BackupLimitsDataAsset = LimitsDataAsset;
+			TObjectPtr<UPhysicsAsset> BackupPhysicsAssetForLimits = PhysicsAssetForLimits;
 
 			RootBone = Chain.BoneSettings.RootBone;
 			ExcludeBones = Chain.BoneSettings.ExcludeBones;
@@ -476,10 +483,17 @@ void FAnimNode_KawaiiPhysics::EvaluateSkeletalControl_AnyThread(FComponentSpaceP
 			BoneConstraints = Chain.BoneConstraintSettings.BoneConstraints;
 			BoneConstraintsData = Chain.BoneConstraintSettings.BoneConstraintsData;
 			Gravity = Chain.ExternalForceSettings.Gravity;
+			bDisableAllExternalForces = Chain.ExternalForceSettings.bDisableAllExternalForces;
 			bEnableWind = Chain.ExternalForceSettings.bEnableWind;
 			WindScale = Chain.ExternalForceSettings.WindScale;
 			ExternalForces = Chain.ExternalForceSettings.ExternalForces;
 			CustomExternalForces = Chain.ExternalForceSettings.CustomExternalForces;
+			SphericalLimits = Chain.LimitSettings.SphericalLimits;
+			CapsuleLimits = Chain.LimitSettings.CapsuleLimits;
+			BoxLimits = Chain.LimitSettings.BoxLimits;
+			PlanarLimits = Chain.LimitSettings.PlanarLimits;
+			LimitsDataAsset = Chain.LimitSettings.LimitsDataAsset;
+			PhysicsAssetForLimits = Chain.LimitSettings.PhysicsAssetForLimits;
 
 			bInitPhysicsSettings = false;
 			TArray<FBoneTransform> ChainBoneTransforms;
@@ -505,10 +519,17 @@ void FAnimNode_KawaiiPhysics::EvaluateSkeletalControl_AnyThread(FComponentSpaceP
 			BoneConstraints = BackupBoneConstraints;
 			BoneConstraintsData = BackupBoneConstraintsData;
 			Gravity = BackupGravity;
+			bDisableAllExternalForces = BackupDisableAllExternalForces;
 			bEnableWind = BackupEnableWind;
 			WindScale = BackupWindScale;
 			ExternalForces = BackupExternalForces;
 			CustomExternalForces = BackupCustomExternalForces;
+			SphericalLimits = BackupSphericalLimits;
+			CapsuleLimits = BackupCapsuleLimits;
+			BoxLimits = BackupBoxLimits;
+			PlanarLimits = BackupPlanarLimits;
+			LimitsDataAsset = BackupLimitsDataAsset;
+			PhysicsAssetForLimits = BackupPhysicsAssetForLimits;
 
 			Swap(ModifyBones, Chain.ModifyBones);
 		}
@@ -1211,41 +1232,41 @@ void FAnimNode_KawaiiPhysics::UpdatePhysicsSettingsOfModifyBones()
 
 		const float LengthRate = Bone.LengthRateFromRoot;
 
-		// Curve IS the value. PhysicsSettings base value is used as fallback when curve has no keys.
+		// Curve multiplies base value. Empty curve returns 1.0 (no change).
 		// GravityScale
 		Bone.PhysicsSettings.GravityScale = FMath::Max(
-			GravityCurveData.GetRichCurveConst()->Eval(
-				LengthRate, PhysicsSettings.GravityScale), 0.0f);
+			PhysicsSettings.GravityScale * GravityCurveData.GetRichCurveConst()->Eval(
+				LengthRate, 1.0f), 0.0f);
 
 		// Damping
 		Bone.PhysicsSettings.Damping = FMath::Clamp(
-			DampingCurveData.GetRichCurveConst()->Eval(
-				LengthRate, PhysicsSettings.Damping), 0.0f, 1.0f);
+			PhysicsSettings.Damping * DampingCurveData.GetRichCurveConst()->Eval(
+				LengthRate, 1.0f), 0.0f, 1.0f);
 		
 		// WorldLocationDamping (allow > 1.0 for over-damping/lag behavior)
 		Bone.PhysicsSettings.WorldDampingLocation = FMath::Max(
-			WorldDampingLocationCurveData.GetRichCurveConst()->Eval(
-				LengthRate, PhysicsSettings.WorldDampingLocation), 0.0f);
+			PhysicsSettings.WorldDampingLocation * WorldDampingLocationCurveData.GetRichCurveConst()->Eval(
+				LengthRate, 1.0f), 0.0f);
 
 		// WorldRotationDamping (allow > 1.0 for over-damping/lag behavior)
 		Bone.PhysicsSettings.WorldDampingRotation = FMath::Max(
-			WorldDampingRotationCurveData.GetRichCurveConst()->Eval(
-				LengthRate, PhysicsSettings.WorldDampingRotation), 0.0f);
+			PhysicsSettings.WorldDampingRotation * WorldDampingRotationCurveData.GetRichCurveConst()->Eval(
+				LengthRate, 1.0f), 0.0f);
 		
 		// Stiffness
 		Bone.PhysicsSettings.Stiffness = FMath::Clamp(
-			StiffnessCurveData.GetRichCurveConst()->Eval(
-				LengthRate, PhysicsSettings.Stiffness), 0.0f, 1.0f);
+			PhysicsSettings.Stiffness * StiffnessCurveData.GetRichCurveConst()->Eval(
+				LengthRate, 1.0f), 0.0f, 1.0f);
 		
 		// Radius
 		Bone.PhysicsSettings.Radius = FMath::Max(
-			RadiusCurveData.GetRichCurveConst()->Eval(
-				LengthRate, PhysicsSettings.Radius), 0.0f);
+			PhysicsSettings.Radius * RadiusCurveData.GetRichCurveConst()->Eval(
+				LengthRate, 1.0f), 0.0f);
 		
 		// LimitAngle
 		Bone.PhysicsSettings.LimitAngle = FMath::Max(
-			LimitAngleCurveData.GetRichCurveConst()->Eval(
-				LengthRate, PhysicsSettings.LimitAngle), 0.0f);
+			PhysicsSettings.LimitAngle * LimitAngleCurveData.GetRichCurveConst()->Eval(
+				LengthRate, 1.0f), 0.0f);
 	}
 }
 
@@ -1495,53 +1516,61 @@ void FAnimNode_KawaiiPhysics::SimulateModifyBones(FComponentSpacePoseContext& Ou
 	}
 
 	// Gravity
-	GravityInSimSpace = ConvertSimulationSpaceVector(Output,
-	                                                 bUseWorldSpaceGravity
-		                                                 ? EKawaiiPhysicsSimulationSpace::WorldSpace
-		                                                 : EKawaiiPhysicsSimulationSpace::ComponentSpace,
-	                                                 SimulationSpace, Gravity);
-	if (bUseDefaultGravityZProjectSetting)
+	if (!bDisableAllExternalForces)
 	{
-		GravityInSimSpace *= FMath::Abs(UPhysicsSettings::Get()->DefaultGravityZ);
-	}
-
-	// SimpleExternalForce: compute once in SimulationSpace (avoid per-bone conversions)
-	if (!SimpleExternalForce.IsNearlyZero())
-	{
-		if (bUseWorldSpaceSimpleExternalForce)
+		GravityInSimSpace = ConvertSimulationSpaceVector(Output,
+		                                                 bUseWorldSpaceGravity
+			                                                 ? EKawaiiPhysicsSimulationSpace::WorldSpace
+			                                                 : EKawaiiPhysicsSimulationSpace::ComponentSpace,
+		                                                 SimulationSpace, Gravity);
+		if (bUseDefaultGravityZProjectSetting)
 		{
-			SimpleExternalForceInSimSpace = ConvertSimulationSpaceVector(
-				Output,
-				EKawaiiPhysicsSimulationSpace::WorldSpace,
-				SimulationSpace,
-				SimpleExternalForce);
+			GravityInSimSpace *= FMath::Abs(UPhysicsSettings::Get()->DefaultGravityZ);
+		}
+
+		// SimpleExternalForce: compute once in SimulationSpace (avoid per-bone conversions)
+		if (!SimpleExternalForce.IsNearlyZero())
+		{
+			if (bUseWorldSpaceSimpleExternalForce)
+			{
+				SimpleExternalForceInSimSpace = ConvertSimulationSpaceVector(
+					Output,
+					EKawaiiPhysicsSimulationSpace::WorldSpace,
+					SimulationSpace,
+					SimpleExternalForce);
+			}
+			else
+			{
+				SimpleExternalForceInSimSpace = SimpleExternalForce;
+			}
 		}
 		else
 		{
-			SimpleExternalForceInSimSpace = SimpleExternalForce;
+			SimpleExternalForceInSimSpace = FVector::ZeroVector;
+		}
+
+		// External Force : PreApply
+		// NOTE: if use foreach, you may get issue ( Array has changed during ranged-for iteration )
+		for (int i = 0; i < CustomExternalForces.Num(); ++i)
+		{
+			if (CustomExternalForces[i])
+			{
+				CustomExternalForces[i]->PreApply(*this, SkelComp);
+			}
+		}
+		for (int i = 0; i < ExternalForces.Num(); ++i)
+		{
+			if (ExternalForces[i].IsValid())
+			{
+				auto& Force = ExternalForces[i].GetMutable<FKawaiiPhysics_ExternalForce>();
+				Force.PreApply(*this, Output);
+			}
 		}
 	}
 	else
 	{
+		GravityInSimSpace = FVector::ZeroVector;
 		SimpleExternalForceInSimSpace = FVector::ZeroVector;
-	}
-
-	// External Force : PreApply
-	// NOTE: if use foreach, you may get issue ( Array has changed during ranged-for iteration )
-	for (int i = 0; i < CustomExternalForces.Num(); ++i)
-	{
-		if (CustomExternalForces[i])
-		{
-			CustomExternalForces[i]->PreApply(*this, SkelComp);
-		}
-	}
-	for (int i = 0; i < ExternalForces.Num(); ++i)
-	{
-		if (ExternalForces[i].IsValid())
-		{
-			auto& Force = ExternalForces[i].GetMutable<FKawaiiPhysics_ExternalForce>();
-			Force.PreApply(*this, Output);
-		}
 	}
 
 	// Simulate
@@ -1558,12 +1587,15 @@ void FAnimNode_KawaiiPhysics::SimulateModifyBones(FComponentSpacePoseContext& Ou
 	}
 
 	// External Force : PostApply
-	for (int i = 0; i < ExternalForces.Num(); ++i)
+	if (!bDisableAllExternalForces)
 	{
-		if (ExternalForces[i].IsValid())
+		for (int i = 0; i < ExternalForces.Num(); ++i)
 		{
-			auto& Force = ExternalForces[i].GetMutable<FKawaiiPhysics_ExternalForce>();
-			Force.PostApply(*this, Output);
+			if (ExternalForces[i].IsValid())
+			{
+				auto& Force = ExternalForces[i].GetMutable<FKawaiiPhysics_ExternalForce>();
+				Force.PostApply(*this, Output);
+			}
 		}
 	}
 

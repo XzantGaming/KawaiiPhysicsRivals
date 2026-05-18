@@ -148,8 +148,23 @@ void UAnimGraphNode_KawaiiPhysics::CopyNodeDataToPreviewNode(FAnimNode_Base* Ani
 	FAnimNode_KawaiiPhysics* KawaiiPhysics = static_cast<FAnimNode_KawaiiPhysics*>(AnimNode);
 
 	// pushing properties to preview instance, for live editing
-	// Chains
-	KawaiiPhysics->Chains = Node.Chains;
+	// Chains: copy settings but preserve existing ModifyBones to avoid destroying simulation state.
+	// If the chain count changed, we must do a full reset.
+	if (KawaiiPhysics->Chains.Num() == Node.Chains.Num())
+	{
+		for (int32 i = 0; i < Node.Chains.Num(); ++i)
+		{
+			TArray<FKawaiiPhysicsModifyBone> PreservedModifyBones = MoveTemp(KawaiiPhysics->Chains[i].ModifyBones);
+			float PreservedTotalBoneLength = KawaiiPhysics->Chains[i].TotalBoneLength;
+			KawaiiPhysics->Chains[i] = Node.Chains[i];
+			KawaiiPhysics->Chains[i].ModifyBones = MoveTemp(PreservedModifyBones);
+			KawaiiPhysics->Chains[i].TotalBoneLength = PreservedTotalBoneLength;
+		}
+	}
+	else
+	{
+		KawaiiPhysics->Chains = Node.Chains;
+	}
 
 	// Default
 	KawaiiPhysics->RootBone = Node.RootBone;
